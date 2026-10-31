@@ -1,0 +1,280 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Heartbeat Gift Page</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: one full-screen night stage. Rain canvas behind, particle canvas on top, DOM text only for the setup card and the final message. */
+  :root {
+    --night: #0b0610;
+    --card: #170c1f;
+    --rose: #ff7aa8;
+    --blush: #ffd1e1;
+    --ember: #ff3d6e;
+    --ink: #f8e9f1;
+    --mute: #b99cac;
+    --line: #3a2147;
+    --f-display: "Cormorant Garamond", "Georgia", serif;
+    --f-body: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--night);
+    color: var(--ink);
+    font: 16px/1.5 var(--f-body);
+    overflow: hidden;
+  }
+  canvas { position: fixed; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%; display: block; }
+  #rain { opacity: .55; }
+
+  .screen { position: fixed; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center;
+    padding-block: 24px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); overflow-y: auto; }
+  .screen[hidden] { display: none; }
+
+  #setup form { width: min(440px, 100%); display: grid; gap: 14px; background: #170c1f; background: rgba(23, 12, 31, .9);
+    border: 1px solid var(--line); border-radius: 6px; padding: 26px 24px; margin: auto; backdrop-filter: blur(6px); }
+  #setup h1 { margin: 0; font: italic 600 clamp(34px, 8vw, 46px)/1.05 var(--f-display); color: var(--blush); text-wrap: balance; }
+  #setup p.lead { margin: 0; color: var(--mute); font-size: 14px; }
+  label { display: grid; gap: 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+  input, textarea { font: 16px/1.4 var(--f-body); color: var(--ink); background: var(--night); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; width: 100%; box-sizing: border-box; }
+  textarea { resize: vertical; min-height: 96px; }
+  input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 2px solid var(--rose); outline-offset: 2px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 420px) { .row { grid-template-columns: 1fr; } }
+  button { font: 800 15px var(--f-body); letter-spacing: .04em; cursor: pointer; border-radius: 4px; padding: 12px 18px; border: 1px solid var(--rose); }
+  .go { background: var(--ember); color: #fff; border-color: var(--ember); }
+  .go:hover { background: var(--rose); border-color: var(--rose); color: var(--night); }
+  .ghost { background: transparent; color: var(--blush); }
+  .ghost:hover { background: var(--line); }
+  .hint { font-size: 12px; color: var(--mute); margin: 0; }
+
+  #finale { pointer-events: none; flex-direction: column; text-align: center; gap: 10px; }
+  #finale .inner { display: grid; gap: 8px; justify-items: center; opacity: 0; transition: opacity 1.6s ease; max-width: min(300px, 36vw); }
+  #finale.show .inner { opacity: 1; }
+  #finale .to { font: italic 600 clamp(26px, 6.2vw, 52px)/1 var(--f-display); color: var(--blush); text-shadow: 0 0 24px rgba(255, 61, 110, .6); overflow-wrap: anywhere; }
+  #finale .note { font-size: clamp(11px, 1.9vw, 15px); color: var(--ink); line-height: 1.4; }
+  #finale .from { font: italic 500 clamp(14px, 2.6vw, 20px) var(--f-display); color: var(--rose); }
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; gap: 10px; justify-content: center;
+    padding: 14px max(16px, env(safe-area-inset-right, 0px)) calc(14px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+    opacity: 0; pointer-events: none; transition: opacity 1s ease; }
+  #bar.show { opacity: 1; pointer-events: auto; }
+  #bar button { padding: 9px 14px; font-size: 13px; }
+</style>
+
+</head><body><canvas id="rain"></canvas>
+<canvas id="fx"></canvas>
+
+<section id="setup" class="screen">
+  <form id="form">
+    <h1>Make her a page</h1>
+    <p class="lead">Type your words, press Start, and watch it count down 3, 2, 1, spell your lines in glowing dots, and finish with a beating heart.</p>
+    <div class="row">
+      <label for="her">Her name<input id="her" autocomplete="off" value="My love"></label>
+      <label for="you">Your name<input id="you" autocomplete="off" value=""></label>
+    </div>
+    <label for="lines">Lines, one per line (short works best)
+      <textarea id="lines" spellcheck="false">Hello
+Beautiful
+I Love You</textarea>
+    </label>
+    <label for="note">Message under the heart
+      <textarea id="note" spellcheck="false" style="min-height:64px">You make every ordinary day feel like a gift.</textarea>
+    </label>
+    <button class="go" type="submit" id="start">Start</button>
+    <p class="hint">Tip: keep each line under about 14 characters so the dots stay readable.</p>
+  </form>
+</section>
+
+<section id="finale" class="screen" hidden>
+  <div class="inner">
+    <div class="to" id="fTo"></div>
+    <div class="note" id="fNote"></div>
+    <div class="from" id="fFrom"></div>
+  </div>
+</section>
+<div id="bar">
+  <button class="ghost" id="replay" type="button">Replay</button>
+  <button class="ghost" id="edit" type="button">Edit words</button>
+</div>
+
+<noscript><p style="position:fixed;top:40%;left:0;right:0;text-align:center;color:#ffd1e1;font:16px sans-serif;padding:0 20px">This page needs JavaScript. Open it in Chrome, Safari or Firefox.</p></noscript>
+<script>
+window.onerror = function (msg) {
+  var d = document.getElementById("err");
+  if (!d) { d = document.createElement("div"); d.id = "err"; d.style.cssText = "position:fixed;left:8px;right:8px;top:8px;z-index:99;background:#300;color:#fff;font:12px/1.4 monospace;padding:8px;border-radius:4px"; document.body.appendChild(d); }
+  d.textContent = "Error: " + msg;
+};
+(function () {
+  // Fonts load in the background so a slow or blocked connection never blocks the page.
+  try {
+    var fl = document.createElement("link"); fl.rel = "stylesheet";
+    fl.href = "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;800&family=Cormorant+Garamond:ital,wght@1,500;1,600&display=swap";
+    document.head.appendChild(fl);
+  } catch (e) {}
+  // Set showSetup to false and fill these in when you host the page for her, so she sees the show straight away.
+  var CONFIG = { showSetup: true, her: "My love", you: "", note: "You make every ordinary day feel like a gift.", lines: ["Hello", "Beautiful", "I Love You"] };
+
+  var FONT = '"Bricolage Grotesque", Impact, sans-serif';
+  var rainC = document.getElementById("rain"), fxC = document.getElementById("fx");
+  var rc = rainC.getContext("2d"), fc = fxC.getContext("2d");
+  var W = 0, H = 0, DPR = 1, N = 2400, parts = [], drops = [], mode = "idle", runId = 0, timers = [];
+  var COLORS = ["#ffb3cf", "#ff7aa8", "#ff4d86", "#fff0f6"];
+  var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    [rainC, fxC].forEach(function (c) { c.width = W * DPR; c.height = H * DPR; });
+    rc.setTransform(DPR, 0, 0, DPR, 0, 0); fc.setTransform(DPR, 0, 0, DPR, 0, 0);
+    rc.fillStyle = "#0b0610"; rc.fillRect(0, 0, W, H);
+    var cols = Math.ceil(W / 16);
+    drops = []; for (var i = 0; i < cols; i++) drops.push(Math.random() * H / 16);
+    N = W < 600 ? 1700 : 2600;
+    if (parts.length !== N) initParts();
+  }
+
+  function initParts() {
+    parts = [];
+    for (var i = 0; i < N; i++) {
+      parts.push({ x: Math.random() * W, y: Math.random() * H, vx: 0, vy: 0, tx: 0, ty: 0, a: .2, ta: .2, c: Math.floor(i / N * 4), hx: 0, hy: 0, h: false });
+      parts[i].tx = parts[i].x; parts[i].ty = parts[i].y;
+    }
+  }
+
+  function rain() {
+    rc.fillStyle = "rgba(11,6,16,0.14)"; rc.fillRect(0, 0, W, H);
+    rc.font = "14px monospace";
+    for (var i = 0; i < drops.length; i++) {
+      var ch = Math.random() > .5 ? "1" : "0";
+      rc.fillStyle = Math.random() > .93 ? "#ffd1e1" : "#d63d78";
+      rc.fillText(ch, i * 16, drops[i] * 16);
+      if (drops[i] * 16 > H && Math.random() > .975) drops[i] = 0;
+      drops[i] += .5;
+    }
+  }
+
+  function shufflePick(arr, n) {
+    var m = Math.min(n, arr.length);
+    for (var i = 0; i < m; i++) { var j = i + Math.floor(Math.random() * (arr.length - i)); var t = arr[i]; arr[i] = arr[j]; arr[j] = t; }
+    return arr.slice(0, m);
+  }
+
+  function textPoints(str) {
+    var off = document.createElement("canvas"); off.width = W; off.height = H;
+    var c = off.getContext("2d");
+    var size = Math.min(H * 0.34, W * 0.5);
+    c.font = "800 " + size + "px " + FONT;
+    while (c.measureText(str).width > W * 0.88 && size > 18) { size -= 4; c.font = "800 " + size + "px " + FONT; }
+    c.textAlign = "center"; c.textBaseline = "middle"; c.fillStyle = "#fff";
+    c.fillText(str, W / 2, H / 2);
+    var d = c.getImageData(0, 0, W, H).data, pts = [];
+    for (var y = 0; y < H; y += 2) for (var x = 0; x < W; x += 2) if (d[(y * W + x) * 4 + 3] > 128) pts.push([x, y]);
+    return shufflePick(pts, N);
+  }
+
+  function burst(power) {
+    for (var i = 0; i < parts.length; i++) { var p = parts[i]; var a = Math.random() * 6.283, s = Math.random() * power; p.vx += Math.cos(a) * s; p.vy += Math.sin(a) * s; }
+  }
+
+  function setText(str) {
+    mode = "text";
+    var pts = textPoints(str);
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i]; p.h = false;
+      if (i < pts.length) { p.tx = pts[i][0]; p.ty = pts[i][1]; p.ta = .95; }
+      else { p.tx = Math.random() * W; p.ty = Math.random() * H; p.ta = .18; }
+    }
+    burst(reduce ? 0 : 9);
+  }
+
+  function heartUnit(t) { return [16 * Math.pow(Math.sin(t), 3), -(13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t))]; }
+
+  function setHeart() {
+    mode = "heart";
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (i < N * 0.82) {
+        var u = heartUnit(Math.random() * 6.2832), k = 1 - Math.pow(Math.random(), 3) * 0.12;
+        p.hx = u[0] * k; p.hy = u[1] * k; p.h = true; p.ta = .98;
+      } else { p.h = false; p.tx = Math.random() * W; p.ty = Math.random() * H; p.ta = .2; }
+    }
+    burst(reduce ? 0 : 12);
+  }
+
+  function frame(ts) {
+    rain();
+    fc.clearRect(0, 0, W, H);
+    var s = Math.min(W * 0.62, H * 0.52) / 32, cx = W / 2, cy = H * 0.46;
+    var pulse = mode === "heart" && !reduce ? 1 + 0.045 * Math.pow(Math.sin(ts / 260), 4) * 2 + 0.01 * Math.sin(ts / 900) : 1;
+    var last = -1;
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p.h) { p.tx = cx + p.hx * s * pulse; p.ty = cy + p.hy * s * pulse; }
+      p.vx += (p.tx - p.x) * 0.055; p.vy += (p.ty - p.y) * 0.055;
+      p.vx *= 0.83; p.vy *= 0.83;
+      p.x += p.vx; p.y += p.vy;
+      p.a += (p.ta - p.a) * 0.08;
+      if (p.c !== last) { fc.fillStyle = COLORS[p.c]; last = p.c; }
+      fc.globalAlpha = p.a;
+      fc.fillRect(p.x, p.y, 2.2, 2.2);
+    }
+    fc.globalAlpha = 1;
+    requestAnimationFrame(frame);
+  }
+
+  function later(fn, ms) { var id = runId; timers.push(setTimeout(function () { if (id === runId) fn(); }, ms)); }
+  function clearTimers() { runId++; timers.forEach(clearTimeout); timers = []; }
+
+  var finale = document.getElementById("finale"), bar = document.getElementById("bar"), setup = document.getElementById("setup");
+
+  function run(cfg) {
+    clearTimers();
+    setup.hidden = true; finale.hidden = true; finale.classList.remove("show"); bar.classList.remove("show");
+    var steps = ["3", "2", "1"].concat(cfg.lines);
+    var HOLD = 1900, t = 500;
+    steps.forEach(function (str) { later(function () { setText(str); }, t); t += HOLD; });
+    later(function () {
+      setHeart();
+      document.getElementById("fTo").textContent = cfg.her;
+      document.getElementById("fNote").textContent = cfg.note;
+      document.getElementById("fFrom").textContent = cfg.you ? "with love, " + cfg.you : "";
+      finale.hidden = false;
+      later(function () { finale.classList.add("show"); }, 1400);
+      later(function () { bar.classList.add("show"); }, 3200);
+    }, t);
+  }
+
+  function readForm() {
+    var lines = document.getElementById("lines").value.split("\n").map(function (l) { return l.trim(); }).filter(Boolean).slice(0, 12);
+    return { her: document.getElementById("her").value.trim() || "My love", you: document.getElementById("you").value.trim(),
+      note: document.getElementById("note").value.trim(), lines: lines.length ? lines : ["I Love You"] };
+  }
+
+  function waitFonts() {
+    var limit = new Promise(function (res) { setTimeout(res, 700); });
+    var load = (document.fonts && document.fonts.load) ? document.fonts.load('800 80px "Bricolage Grotesque"').catch(function () {}) : Promise.resolve();
+    return Promise.race([load, limit]);
+  }
+  var current = null;
+  document.getElementById("form").addEventListener("submit", function (e) {
+    e.preventDefault(); current = readForm();
+    waitFonts().then(function () { run(current); });
+  });
+  document.getElementById("replay").addEventListener("click", function () { if (current) run(current); });
+  document.getElementById("edit").addEventListener("click", function () {
+    clearTimers(); finale.classList.remove("show"); finale.hidden = true; bar.classList.remove("show"); setup.hidden = false; mode = "idle";
+    parts.forEach(function (p) { p.h = false; p.tx = Math.random() * W; p.ty = Math.random() * H; p.ta = .2; });
+  });
+
+  window.addEventListener("resize", resize);
+  resize(); requestAnimationFrame(frame);
+
+  if (!CONFIG.showSetup) {
+    current = CONFIG; setup.hidden = true;
+    waitFonts().then(function () { run(current); });
+  } else {
+    document.getElementById("her").value = CONFIG.her; document.getElementById("you").value = CONFIG.you;
+    document.getElementById("note").value = CONFIG.note; document.getElementById("lines").value = CONFIG.lines.join("\n");
+  }
+})();
+</script>
+</body></html>
